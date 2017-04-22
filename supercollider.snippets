@@ -1,0 +1,866 @@
+# Snippets for Mads Kjelgaards SuperCollider setup
+
+# --- SETUP ---
+
+snippet setup
+	(
+	// Allocate memory
+	s.options.memSize = 8192 * 64;
+
+	// Set sample rate
+	//s.options.sampleRate= 44100;
+
+	// Number of hardware ins / outs
+	s.options.numOutputBusChannels;
+	s.options.numInputBusChannels;
+
+	// increase this if you are getting drop outs and the message "too many nodes"
+	s.options.maxNodes = 1024 * 64; 
+
+	// Audio meters
+	s.meter;
+
+	// Server visualisation 
+	s.plotTree;
+
+	// ProxySpace setup
+	//p = ProxySpace.push(s);
+
+	// Boot the server 
+	s.boot;
+	)
+endsnippet
+
+# Proxy
+snippet proxy
+	(
+	p = ProxySpace.push(s);
+	p.fadeTime = 2;
+	// p.clear
+	// Start tempoclock
+	p.makeTempoClock;
+	//give proxyspace a tempo
+	p.clock.tempo = 1;
+	// Activate limiter
+	StageLimiter.activate;
+	)
+endsnippet
+
+# --- LANGUAGE STUFF ---
+
+snippet do
+	${1:10}.do{arg ${2:i}; ${0:// Code here} };
+endsnippet
+
+snippet lc
+	${1:all} {: x, x <- (${2:1}..${3:10}), ${4:x.odd} }
+endsnippet
+
+snippet recompile
+	// Recompile
+	thisProcess.platform.recompile;
+endsnippet
+
+snippet class
+	MyClass {
+			var a, // Instance variable with no getter or setter method
+				<b, // Instance variable with getter method
+				>c, // Instance variable with setter method
+				<>d; // Instance variable with both getter and setter method
+			
+			// class method 
+			*new {
+				^super.new
+			}
+
+			// this is a normal constructor method
+			*new1 { arg arg1,arg2,arg3;
+				^super.new.init(arg1,arg2,arg3)
+			}
+			init { arg arg2,arg2,arg3;
+				// do initiation here
+			}
+		}
+endsnippet
+
+snippet routine
+	Routine({
+		arg ${1:i};
+	})
+endsnippet	
+
+# --- BUSSES ---
+snippet audiobus 
+	${1:b} = Bus.audio(${2:s}, ${3:1}); // $3 channel audio bus 
+endsnippet
+
+snippet controlbus 
+	${1:c} = Bus.control(${2:s}, ${3:1}); // $3 channel control bus 
+endsnippet
+
+snippet aux
+	/* --- EFFECT AUX: $1 --- */
+
+	~$1Bus = Bus.audio(s, ${2:1}); // $2 channel audio bus 
+
+	SynthDef(\\${1:synthName}, {
+		arg out=0, amp=1.0, inBus = ~$1Bus;
+
+		var sig, in;
+
+		// Signal
+		in = In.ar(inBus, $2);
+		
+		sig = ${3:FreeVerb.ar(in)};
+		
+		sig = sig * amp;
+		Out.ar(out, sig)
+	}).add;
+endsnippet
+
+# --- PATTERNS---
+
+# Pbind 
+snippet pb
+	/*** Pattern $1 for $2 synth ***/
+	~${1:pattern1} = Pbind(
+		\instrument, \\${2:synthDefName}, 
+		\amp, 1.0,
+		\freq, Pseq([${3:110,220,440,560}],1),
+		\dur, Pseq([${0:2,Rest(3),4,5}], 1),
+		\pfunc, Pfunc({"%: $1 is playing $2 synth".format(Date.getDate.format("%H:%M:%S")).postln}),
+		\out, 0
+	);
+endsnippet
+
+snippet pl
+	/*** Parallel lambda pattern $1 for $2 and $3 synths***/
+	~${1:pattern1} = Plambda(
+		Ppar([ 
+			Pbind(\instrument, \\${2:synthDefName}, 
+				\dur, ${4:Plet(\x, Pseq([1,5,3,1],1))},
+				\out, 0
+				),
+			Pbind(\instrument, \\${3:synthDefName}, 
+				\dur, ${5:Pget(\x)*2}, 
+				\out, 0
+				)
+		], inf)
+	);
+endsnippet
+
+snippet plambda
+	Plambda(${1:pattern}${2:, scope})
+endsnippet
+
+snippet plet
+	Plet(key: \${1:key}, stream: ${2:Pseries(0, 1, inf)}, return: ${3:Pseries(100, -1, inf)})
+endsnippet
+
+snippet pget 
+	Pget(key: \${1:key}, default: ${2:0}, repeats: ${3:inf}) 
+endsnippet
+
+snippet pseq
+	Pseq([${1:1,2,3,4}], ${2:inf}, ${3:0})
+endsnippet
+
+snippet pbind
+	Pbind(\instrument, \${1:instrument},
+		\dur, ${2:5},
+		\out, ${3:0}
+		)
+endsnippet	
+
+snippet ppar
+	Ppar([
+		${1: pattern1},
+		${2: pattern2}
+		], ${3:inf})
+endsnippet
+
+snippet pn
+	Pn(pattern: ${1:pattern}, repeats: ${2:inf}, key: ${3:nil})
+endsnippet
+
+snippet pfindur
+	Pfindur(${1:dur}, ${2:pattern}, ${3:tolerance}) 
+endsnippet
+
+snippet pfunc
+	Pfunc({${1: }})
+endsnippet
+
+# --- SYNTH DEFINITIONS ---
+
+# Browse synth defs
+snippet browse
+	(
+	// Browse SynthDefs
+	SynthDescLib.global.read;
+	SynthDescLib.global.browse;
+	)
+endsnippet
+
+# Basic synthdef snippet
+snippet sd
+	/* --- SYNTH: $1 --- */
+	SynthDef(\\${1:synthName}, {
+		arg out=0, amp=1.0, freq, effectBus, send=0,
+		atk=1, sus=1, rel=1, pan=0;
+		var env, sig;
+
+		// Envelope
+		env = EnvGen.kr(Env([0, 1.0, 0.75, 0.0], [atk, sus, rel]), doneAction:2);
+
+		// Signal
+		sig = ${0:SinOsc.ar([freq, freq*1.01])};
+		sig = Pan2.ar(sig, pan);
+
+		sig = sig * env * amp;
+		Out.ar(effectBus, sig*send);
+		Out.ar(out, sig )
+	}).add;
+endsnippet
+
+#SynthDef for a sample player for either stereo or mono samples 
+snippet sp 
+	/* --- SYNTH: $1 --- */
+	SynthDef(\\${1:samplePlayer1}, {
+		arg buffer, out = 0, amp = 1.0, 
+		rate=1, trig=1, start=0, loop=0,
+		atk=1, sus=1, rel=1;    
+
+		var sig, env;
+
+		// Envelope
+		env = EnvGen.kr(Env([0, 1.0, 0.75, 0.0], [atk, sus, rel]), doneAction:2);
+
+		// Signal: Play buffer 
+		sig = PlayBuf.ar(${0:2}, 
+			buffer, BufRateScale.kr(buffer) * rate, 
+			trig, start, loop, doneAction:0);
+
+		Out.ar(out, sig * amp * env);
+	}).add;
+endsnippet
+
+# SynthDef with grainBuf 
+snippet gb 
+	/* --- SYNTH: $1 --- */
+	SynthDef(\\${1:bufferGranulator}, {
+		arg buffer, out=0, amp=1.0, 
+		rate=1.0, gdur=0.5, gpan=0, pos=0, 
+		atk=1.0, sus=1.0, rel=2.0, 
+		trigrate=10, maxGrains=512;
+
+		var sig, env, trigger;
+
+		// Envelope
+		env = EnvGen.kr(Env([0, 1.0, 0.75, 0.0], [atk, sus, rel]), doneAction:2);
+
+		// Trigger variable
+		trigger = Impulse.kr(trigrate);
+		
+		// Signal: Grainbuf
+		// Attention: This only works for mono samples!!!
+		sig = GrainBuf.ar(${0:2}, trigger, 
+		gdur, buffer, rate, pos, 2, gpan, maxGrains:maxGrains); 
+
+	  Out.ar(out, sig * amp * env);
+	}).add;
+endsnippet	
+
+# SynthDef with TGrains 
+snippet tg1 
+	/* --- SYNTH: $1 --- */
+	SynthDef(\\${1:triggeredGrain1}, {
+
+		arg buffer, out=0, amp=1.0, 
+		rate=1.0, gdur=0.5, gpan=0, pos=0, 
+		atk=1.0, sus=1.0, rel=2.0, 
+		trigrate=10;
+
+		var sig, env, trigger, centerpos;
+
+		// Envelope
+		env = EnvGen.kr(Env([0, 1.0, 0.75, 0.0], [atk, sus, rel]), doneAction:2);
+
+		// Trigger variable
+		trigger = Impulse.kr(trigrate);
+
+		// Scale buffer duration to 0.0-1.0
+		centerpos = pos * BufDur.kr(buffer);
+
+		// Signal: Grainbuf
+		// Attention: Input buffer has to be 1 channel!
+		sig = TGrains.ar(${0:2}, trigger: trigger, bufnum: buffer, rate: rate,
+		centerPos: centerpos, dur: gdur, pan: gpan, amp: amp, 
+		interp: 4);
+
+		Out.ar(out, sig * amp * env);
+	}).add;
+endsnippet	
+
+# SynthDef with TGrains2 
+snippet tg2 
+	/* --- SYNTH: $1 --- */
+	SynthDef(\\${1:triggeredGrain2}, {
+		arg buffer, out=0, amp=1.0, 
+		rate=1.0, gdur=0.5, gpan=0, pos=0, 
+		atk=1.0, sus=1.0, rel=2.0, 
+		trigrate=10;
+
+		var sig, env, trigger, centerpos;
+
+		// Envelope
+		env = EnvGen.kr(Env([0, 1.0, 0.75, 0.0], [atk, sus, rel]), doneAction:2);
+
+		// Trigger variable
+		trigger = Impulse.kr(trigrate);
+
+		// Scale buffer duration to 0.0-1.0
+		centerpos = pos * BufDur.kr(buffer);
+
+		// Signal: Grainbuf
+		// Attention: Input buffer has to be 1 channel!
+		sig = TGrains2.ar(${0:2}, trigger: trigger, bufnum: buffer, rate: rate,
+		centerPos: centerpos, dur: gdur, pan: gpan, amp: amp, 
+		att: 0.5, dec: 0.5, interp: 4);
+
+		Out.ar(out, sig * amp * env);
+	}).add;
+endsnippet	
+
+
+# --- UGEN SHORTCUTS! ---
+
+# .kr ugens
+snippet csin
+	SinOsc.kr(${1:5}).range(${2:0}, ${3:1})
+endsnippet	
+
+snippet csaw 
+	Saw.kr(${1:5}).range(${2:0}, ${3:1})
+endsnippet	
+
+snippet ctri 
+	LFTri.kr(${1:5}).range(${2:0}, ${3:1})
+endsnippet	
+
+snippet white 
+	WhiteNoise.kr().range(${1:0}, ${2:1})
+endsnippet	
+
+# Noise
+snippet n0
+	LFNoise0.kr(${1:5}).range(${2:0}, ${3:1}) ${4:// Step noise}
+endsnippet
+
+snippet n1
+	LFNoise1.kr(${1:5}).range(${2:0}, ${3:1}) ${4:// Ramp noise}
+endsnippet
+
+snippet n2
+	LFNoise2.kr(${1:5}).range(${2:0}, ${3:1}) ${4:// Quadratic noise}
+endsnippet
+
+snippet n6
+	Crackle.kr(${1:1.5}).range(${2:0}, ${3:1}) ${4:// Chaotic noise function}
+endsnippet
+
+# Random
+snippet tchoose
+	TChoose.kr(${1:trig}, ${2:array})
+endsnippet
+
+snippet texprand
+	TExpRand.kr(lo: ${1:0.01}, hi: ${2:1}, trig: ${3:0})
+endsnippet
+	
+snippet trand
+	TRand.kr(lo: ${1:0}, hi: ${2:1}, trig: ${3:0})
+endsnippet
+
+snippet tgaussrand
+	TGaussRand.kr(lo: ${1:0}, hi: ${2:1}, trig: ${3:0})
+endsnippet
+
+snippet tbetarand
+	// If prob1 & prob2 are less than 1, values tend towards lo & hi. if they
+	// are equal to 1, there is a linear random distribution. higher than 1, the
+	// distribution tends towards gaussian, with the possibility of a mean
+	// skewed towards the prob of the lowest value.
+	TBetaRand.kr(lo: ${1:0}, hi: ${2:1}, ${3:prob1}, 
+				${4:prob2}, trig: ${5:0})
+endsnippet
+
+snippet tbrownrand
+	TBrownRand.kr(lo:${1:0}, hi: ${2:1}, dev:${3:1}, dist: ${4:0}, trig: ${5:0})
+endsnippet	
+
+# .ar ugens
+
+# Chaos
+
+snippet lorenz
+	LorenzL.ar(freq: ${1:22050}, s: ${2:10}, r: ${3:28}, 
+	b:${4:2.667}, h: ${5:0.05}, xi: ${6:0.1}, yi: ${7:0}, 
+	zi: ${8:0})
+endsnippet
+
+snippet henonc
+	HenonC.ar(freq: ${1: 22050}, a: ${2:1.4}, b: ${3:0.3}, x0: ${4:0}, x1:{5:0})
+endsnippet
+
+# Dynamics
+
+snippet compander
+	Compander.ar(in: ${1:0}, control: ${2:0}, thresh: ${3:0.5}, slopeBelow:
+	${4:1}, slopeAbove: ${5:1}, clampTime: ${6:0.01}, relaxTime: ${7:0.1})
+endsnippet
+
+
+# Pan
+snippet pan2
+	Pan2.ar(${1:in}, pos: ${2:0}, level: ${3:1})
+endsnippet
+
+snippet select
+	Select.kr(${1:aKrSignal} > ${2:anotherKrSignal}, [${3:false_signal}, ${4:true_signal}])
+endsnippet
+
+snippet crossfade
+	LinXFade2.ar(${1:inA}, ${2:inbB}, pan: ${3:0}, level: ${4:1})
+endsnippet
+
+# Oscillators
+snippet sinosc
+	SinOsc.ar(freq: ${1:440}, phase: ${2:0}, mul: ${3:1})
+endsnippet
+
+snippet sinoscfb
+	SinOscFB.ar(freq: ${1:440}, feedback: ${2:0}, mul: ${3:1})
+endsnippet
+
+snippet pmosc 
+	PMOsc.ar(${1:carfreq}, ${2:modfreq}, pmindex: ${3:0}, modphase: ${4:0})
+endsnippet
+
+snippet klang
+	Klang.ar([${1:frequencies}, ${2:amplitudes}, ${3:phases}], freqscale: ${4:1} ], freqoffset: ${5:0})
+endsnippet
+
+snippet saw
+	SawDPW.ar(freq: ${1:440}, iphase: ${2:0})
+endsnippet
+
+snippet pulse
+	PulseDPW.ar(freq: ${1:440}, width: ${2:0.5})
+endsnippet	
+
+snippet cosc
+	// Chorusing wavetable lookup oscillator. 
+	COsc.ar(${1:bufnum}, freq: ${2:440}, beats: ${3:0.5})
+endsnippet
+
+snippet formant
+	Formant.ar(fundfreq: ${1:440}, formfreq: ${2:1760}, bwfreq: ${3:880})
+endsnippet
+
+snippet vibrato
+	Vibrato.ar(freq: ${1:DC.ar(440}), 
+		rate: ${2:6}, depth: ${3:0.02}, delay: ${4:0}, 
+		onset: ${5:0}, rateVariation: ${6:0.04}, 
+		depthVariation: ${7:0.1}, iphase: ${8:0}, trig: ${9:0})
+endsnippet
+
+# Buffer stuff
+snippet playbuf
+	PlayBuf.ar(${1:2}, ${2:buffer}, BufRateScale.kr($2) * ${3:rate}, ${4:trig},
+		${5:start}, ${6:loop}, doneAction:${7:2});
+endsnippet
+
+snippet recordbuf
+	RecordBuf.ar({${1:inputArray}, 
+		bufnum: ${2:0}, 
+		offset: ${3:0}, 
+		recLevel: ${4:1}, // Value to multiply by input before mixing with existing data.
+		preLevel: ${5:1}, // Value to multiply to existing data in buffer before mixing with input. 
+		run: ${6:1}, // If zero, then recording stops, otherwise recording proceeds. 
+		loop: ${7:1}, trigger: ${8:1},
+		doneAction: ${9:0})
+endsnippet
+
+snippet bufferalloc
+	${1:b} = Buffer.alloc(s, s.sampleRate * ${2:8}, ${3:numChannels:1});
+endsnippet
+
+snippet bufferread
+	Buffer.read(${1:s}, ${2:path}, startFrame: ${3:0}, numFrames: ${4:-1})
+endsnippet
+
+# Granular 
+
+# Custom ugen
+snippet basinski
+	Basinski.ar(in: ${1:in}, loss:${2:0.01}, lossFreq:${3:1.0}, noise:${4:0.0})${0:}
+endsnippet
+
+# Custom ugen
+snippet basinskibuf
+	BasinskiBuf.ar(numChannels: ${1:2}, ${2:buffer}, rate:${3:1.00}, trig:${4:1}, start:${5:0}, loop:${6:0}, loss:${7:0.01},
+		lossFreq:${8:1.0}, instability:${9:0.01}, noise:${10:0.0}, doneAction: ${11:0})
+endsnippet
+
+snippet warp
+	Warp1.ar(${1:2}, bufnum: ${2:0}, pointer: ${3:0}, freqScale: ${4:1},
+		windowSize: ${5:0.2}, envbufnum: ${6:-1}, overlaps: ${7:8}, windowRandRatio:
+		${8:0}, interp: ${9:1})
+endsnippet
+
+snippet tgrain2
+	TGrains2.ar (${0:1}, trigger: ${1:0}, bufnum: ${2:0}, rate: ${3:1},
+		centerPos: ${4:0}, dur: ${5:0.1}, pan: ${6:0}, amp: ${7:0.1}, 
+		att: ${8:0.5}, dec: ${9:0.5}, interp: ${10:4})
+endsnippet
+
+snippet bufgrain
+	BufGrain.ar(trigger: ${0:0}, dur: ${1:1}, sndbuf:${2:buffer}, rate: ${3:1}, pos: ${4:0}, interp: ${5:2})
+endsnippet
+
+snippet ingrain
+	InGrain.ar(trigger: ${1:0}, dur: ${2:1}, in: ${3:in})
+endsnippet	
+
+snippet monograin 
+	MonoGrain.ar(${1:in}, winsize: ${2:0.1}, grainrate: ${3:10}, winrandpct: ${4:0})
+endsnippet	
+
+snippet concat
+	Concat.ar(
+		${1:control}, ${2:source}, storesize: ${3:1}, 
+		seektime: ${4:1}, seekdur: ${5:1}, matchlength: ${6:1}, 
+		freezestore: ${7:0}, zcr: ${8:1}, lms: ${9:1}, 
+		sc: ${10:1}, st: ${11:0}, randscore: ${12:0})
+endsnippet
+
+snippet concat2
+	Concat2.ar(
+		${1:control}, ${2:source}, storesize: ${3:1}, seektime: ${4:1}, 
+		seekdur: ${5:1}, matchlength: ${6:1}, freezestore: ${7:0}, 
+		zcr: ${8:1}, lms: ${9:1}, sc: ${10:1}, st: ${11:0}, randscore: ${12:0}, 
+		threshold: ${13:0.01})
+endsnippet
+
+snippet fmgrain
+	FMGrain.ar(trigger: ${1:0}, dur: ${2:1}, carfreq: ${3:440}, modfreq:
+	${4:200}, index: ${5:1})
+endsnippet
+
+
+# Reverbs
+snippet rev1 
+	Greyhole.ar(${1:in}, 
+		delayTime: ${2:2}, 
+		damp: ${3:0}, //  0 is no damping, 1 is very strong damping (0..1)
+		size: ${4:1}, // Values below 1 can sound metallic. (0.5..5) 
+		diff: ${5:0.707}, // controls pattern of echoes produced by the diffuser. 
+		feedback: ${6:0.9}, 
+		modDepth: ${7:0.1}, // (0..1) 
+		modFreq: ${8:2} // (0..10) 
+	)
+endsnippet
+
+snippet greyhole 
+	Greyhole.ar(${1:in}, 
+		delayTime: ${2:2}, 
+		damp: ${3:0}, //  0 is no damping, 1 is very strong damping (0..1)
+		size: ${4:1}, // Values below 1 can sound metallic. (0.5..5) 
+		diff: ${5:0.707}, // controls pattern of echoes produced by the diffuser. 
+		feedback: ${6:0.9}, 
+		modDepth: ${7:0.1}, // (0..1) 
+		modFreq: ${8:2} // (0..10) 
+	)
+endsnippet
+
+snippet rev2 
+	JPverb.ar(${1:in}, 
+		t60: ${2:1}, // approximate reverberation time in seconds (T60 - the time for the reverb to decay 60db) 
+		damp: ${3:0}, 
+		size: ${4:1}, 
+		earlyDiff: ${5:0.707}, //controls shape of early reflections. Values of 0.707 or more produce smooth exponential decay.
+		modDepth: ${6:0.1}, 
+		modFreq: ${7:2}, 
+		low: ${8:1}, 	
+		mid: ${9:1}, 
+		high: ${10:1}, 
+		lowcut: ${11:500}, highcut: ${12:2000})
+endsnippet	
+
+snippet jpverb 
+	JPverb.ar(${1:in}, 
+		t60: ${2:1}, // approximate reverberation time in seconds (T60 - the time for the reverb to decay 60db) 
+		damp: ${3:0}, 
+		size: ${4:1}, 
+		earlyDiff: ${5:0.707}, //controls shape of early reflections. Values of 0.707 or more produce smooth exponential decay.
+		modDepth: ${6:0.1}, 
+		modFreq: ${7:2}, 
+		low: ${8:1}, 	
+		mid: ${9:1}, 
+		high: ${10:1}, 
+		lowcut: ${11:500}, highcut: ${12:2000})
+endsnippet	
+
+snippet waveloss
+	WaveLoss.ar(in:${1:0}, drop: ${2:20}, // Amount of chunks to drop 
+		outof: ${3:40}, // Maximum amount of chunks 
+		mode: ${4:1} // 1 = drop in deterministic fashion, 2 = random
+	)
+endsnippet
+
+snippet freqshift
+	FreqShift.ar(${1:in}, freq: ${2:0}, phase: ${3:0})
+endsnippet
+
+snippet squiz
+	Squiz.ar(
+		${1:in},
+		pitchratio: ${2:2}, // the ratio by which pitch will be raised (e.g.  pitchratio of 2 will raise by one octave)
+		zcperchunk:${3:1}, // indicates how many positive-going zero-crossings are used to delimit a chunk. 
+		memlen: ${4:0.1} // the amount (in seconds) of memory the unit allocates internally to remember each fragment, i.e. the longest a given fragment can become.
+	)
+endsnippet
+
+# Resonant filters and resonators
+snippet complexres
+	ComplexRes.ar(in: ${1:0}, freq: ${2:100}, decay: ${3:0.2})
+endsnippet
+
+snippet res1 
+	// a two pole resonant filter
+	Resonz.ar(in: ${1:0}, 
+		freq: ${2:440}, // WARNING: frequency values close to 0 may cause glitches or loud artifacts
+		bwr: ${3:1} // Bandwidth ratio (reciprocal of Q). rq = bandwidth / centerFreq. 
+		)
+endsnippet
+
+snippet resonz 
+	// a two pole resonant filter
+	Resonz.ar(in: ${1:0}, 
+		freq: ${2:440}, // WARNING: frequency values close to 0 may cause glitches or loud artifacts
+		bwr: ${3:1} // Bandwidth ratio (reciprocal of Q). rq = bandwidth / centerFreq. 
+		)
+endsnippet
+
+snippet res2 
+	ComplexRes.ar(in: ${1:0}, freq: ${2:100}, // resonating frequency, can be modulated at audiorate. 
+		decay: ${3:0.2})
+endsnippet
+
+snippet complexres 
+	ComplexRes.ar(in: ${1:0}, freq: ${2:100}, // resonating frequency, can be modulated at audiorate. 
+		decay: ${3:0.2})
+endsnippet
+
+snippet klank
+	Klank.ar(`[${1:frequencies}, ${2:amplitudes}, ${3:ringtimes}], ${4:input},
+	freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:1})
+endsnippet
+
+snippet dynklank
+	DynKlank.ar(`[${1:frequencies}, ${2:amplitudes}, ${3:ringtimes}], ${4:input},
+	freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:1})
+endsnippet
+
+snippet ringz
+	Ringz.ar(in: ${1:0}, freq: ${2:440}, decaytime: ${3:1})
+endsnippet
+
+# Physical Models
+snippet ball 
+	// Ball models the path of a bouncing object that is reflected by a vibrating surface.
+	Ball.ar(in: ${1:0}, // modulated surface level
+		g: ${2:1}, // Gravity 
+		damp: ${3:0}, // Damping on impact 
+		friction: ${4:0.01} // Proximity from which on attraction to surface starts
+	)
+endsnippet
+
+snippet membranecircle
+	// Waveguide mesh physical models of drum membranes
+	MembraneCircle.ar(${1:excitation}, tension: ${2:0.05}, loss: ${3:0.99999})
+endsnippet
+
+snippet membranehexagon
+	// Waveguide mesh physical models of drum membranes
+	MembraneCircle.ar(${1:excitation}, tension: ${2:0.05}, loss: ${3:0.99999})
+endsnippet
+
+snippet spring
+	// physical model of resonating spring
+	Spring.ar(in: ${1:0}, spring: ${2:1}, damp: ${3:0})
+endsnippet
+
+snippet tball
+	// Physical model of bouncing object	
+	// models the impacts of a bouncing object that is reflected by a vibrating surface
+	TBall.ar(in: ${1:0}, 
+		g: ${2:10}, // Gravity 
+		damp: ${3:0}, // Damping on impact 
+		friction: ${4:0.01}
+		)
+endsnippet
+
+snippet oteypianostrings
+	OteyPianoStrings.ar(freq: 440, vel: 1, t_gate: 0, rmin: 0.35, rmax: 2,
+	rampl: 4, rampr: 8, rcore: 1, lmin: 0.07, lmax: 1.4, lampl: -4, lampr: 4,
+	rho: 1, e: 1, zb: 1, zh: 0, mh: 1, k: 0.2, alpha: 1, p: 1, hpos: 0.142,
+	loss: 1, detune: 0.0003, hammer_type: 1)
+endsnippet
+
+# Lowpass filters
+snippet lpf1
+	LPF.ar(in: ${1:0}, freq: ${2:440})
+endsnippet
+
+snippet lpf2
+	RLPF.ar(in: ${1:0}, freq: ${2:440}, rq: ${3:1})
+endsnippet	
+
+snippet lpf3
+	DFM1.ar(${1:in}, freq: ${2:1000}, res: ${3:0.1}, 
+		inputgain: ${4:1}, type:0, noiselevel: ${5:0.0003}) 
+endsnippet
+
+snippet lpf4
+	BMoog.ar(in: ${1:0}, freq: ${2:440}, q: ${3:0.2}, mode:0, saturation: ${4:0.95})
+endsnippet	
+
+snippet lpf5
+	IIRFilter.ar(${1:in}, freq: ${2:440}, rq: ${3:1})
+endsnippet
+
+snippet lpf6
+	// TB303 filter emulation
+	RLPFD.ar(${1:in}, freq: ${2:440}, res: ${3:0}, dist: ${4:0})
+endsnippet
+
+# Highpass filters
+snippet hpf1
+	HPF.ar(in: ${1:0}, freq: ${2:440})
+endsnippet
+
+snippet hpf2
+	RHPF.ar(in: ${1:0}, freq: ${2:440}, rq: ${3:1})
+endsnippet
+
+snippet hpf3 
+	DFM1.ar(${1:in}, freq: ${2:1000}, res: ${3:0.1}, 
+		inputgain: ${4:1}, type:1, noiselevel: ${5:0.0003}) 
+endsnippet
+
+# Other kinds of filters
+snippet string 
+	Streson.ar(${1:input}, delayTime: ${2:0.003}, res: ${3:0.9})
+endsnippet	
+
+
+# Demandrate stuff
+
+snippet demand
+	Demand.${0:kr}(${1:trig}, ${2:reset}, ${3:demandUGens})
+endsnippet
+
+snippet duty
+	Duty.${0:kr}(dur:${1:Dseq([1,3,2,4],inf)}, reset: ${2:0}, level: ${3:1})
+endsnippet
+
+snippet tduty
+	Tduty.${0:kr}(dur: ${1:1}, reset: ${2:0}, level: ${3:1})
+endsnippet
+
+snippet dnoisering
+	DNoiseRing(change: ${1:0.5}, chance: ${2:0.5}, shift: ${3:1}, numBits: ${4:8}, resetval: ${5:0})
+endsnippet
+
+snippet dgeom
+	Dgeom(start: ${1:1}, grow: ${2:2}, length: ${3:inf})
+endsnippet
+
+snippet dbrown
+	Dbrown(lo: ${1:0}, hi: ${2:1}, step: ${3:0.01}, length: ${4:inf})
+endsnippet
+
+snippet dneuromodule
+	DNeuromodule(numChannels: ${1:2}, theta: ${2:[MouseX.kr(-2, 2), MouseY.kr(-2, 2)]}, x: ${3:[0.1, 0.3]}, weights: ${4:[-4,2,-2,0]})
+endsnippet	
+
+snippet drand
+	Drand(${1:list}, repeats: ${2:1})
+endsnippet	
+
+snippet dxrand
+	Dxrand(${1:list}, repeats: ${2:1})
+endsnippet	
+
+snippet dser
+	Dser(${1:list}, repeats: ${2:1})
+endsnippet	
+
+snippet dseq
+	Dseq(${1:list}, repeats: ${2:1})
+endsnippet
+
+snippet dseries
+	Dseries(start: ${1:1}, step: ${2:1}, length: ${3:inf})
+endsnippet
+
+snippet dshuf
+	Dshuf(${1:list}, repeats: ${2:1})
+endsnippet
+
+snippet dstutter
+	Dstutter(${1:n}, ${2:in})
+endsnippet
+
+snippet dswitch
+	Dswitch(${1:list}, ${2:index})
+endsnippet
+
+snippet dwhite
+	Dwhite(lo: ${1:0}, hi: ${2:0}, length: ${3:inf})
+endsnippet
+
+snippet dwrand
+	Dwrand(${1:list}, ${2:weights}, repeats: ${3:1})
+endsnippet
+
+
+# --- OTHER STUFF ---
+
+# A snippet for quickly batch loading samples to an array of buffers
+snippet sl 
+	(
+	/*** Batch load samples for $1 ***/
+	// Be careful when using samples in eg. grain Ugens: They expect mono
+	// samples.
+	~${1:arrayOfSamples} = Array.new; 
+
+	~folder = PathName.new("${2:path/to/samples}");
+
+	~folder.entries.do({
+		arg path;
+		~$1 = ~$1.add(Buffer.read(s, path.fullPath));
+	});
+	)
+	// Test if samples work
+	~$1[0].play;
+endsnippet
+
+snippet /*
+	/**************************** 
+			${0:BREAK}  
+	*****************************/
+endsnippet
+
