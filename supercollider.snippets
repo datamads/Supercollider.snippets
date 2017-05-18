@@ -191,7 +191,6 @@ snippet pfunc
 	Pfunc({${1: }})
 endsnippet
 
-
 # --- SYNTH DEFINITIONS ---
 
 # Browse synth defs
@@ -337,6 +336,26 @@ endsnippet
 # --- UGEN SHORTCUTS! ---
 
 # .kr ugens
+snippet lfsaw
+	LFSaw.kr(freq: ${1:440}, iphase: ${2:0}, mul: ${3:1}, add: 0)
+endsnippet
+
+snippet lfcub
+	LFCub.kr(freq: ${1:440}, iphase: ${2:0}, mul: ${3:1}, add: 0)
+endsnippet
+
+snippet lftri
+	LFTri.kr(freq: ${1:440}, iphase: ${2:0}, mul: ${3:1}, add: 0)
+endsnippet
+
+snippet lfpar 
+	LFPar.kr(freq: ${1:440}, iphase: ${2:0}, mul: ${3:1}, add: 0)
+endsnippet
+
+snippet lfpulse
+	LFPulse.kr(freq: ${1:440}, iphase: ${2:0}, width: ${3:0.5}, mul: ${3:1}, add: 0)
+endsnippet
+
 snippet csin
 	SinOsc.kr(${1:5}).range(${2:0}, ${3:1})
 endsnippet	
@@ -665,13 +684,13 @@ snippet complexres
 endsnippet
 
 snippet klank
-	Klank.ar(`[${1:frequencies}, ${2:amplitudes}, ${3:ringtimes}], ${4:input},
-	freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:1})
+	Klank.ar(\`[${1:frequencies}, ${2:amplitudes}, ${3:ringtimes}], ${4:input},
+		freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:1})
 endsnippet
 
 snippet dynklank
-	DynKlank.ar(`[${1:frequencies}, ${2:amplitudes}, ${3:ringtimes}], ${4:input},
-	freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:1})
+	DynKlank.ar(\`[${1:frequencies}, ${2:amplitudes}, ${3:ringtimes}], ${4:input},
+		freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:1})
 endsnippet
 
 snippet ringz
@@ -857,6 +876,13 @@ snippet sl
 	)
 	// Test if samples work
 	~$1[0].play;
+endsnippet
+
+snippet autopan
+	panner = SinOsc.kr(panfreq,0,autopan).range(-1,1);
+	panner = Select.kr(autopan > 0, [0, panner]);
+	sig = Balance2.ar(sig[0], sig[1], panner);
+	sig = Balance2.ar(sig[0], sig[1], pan);
 endsnippet
 
 snippet /*
