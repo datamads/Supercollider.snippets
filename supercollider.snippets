@@ -2,6 +2,10 @@
 
 # --- SETUP ---
 
+snippet snippath
+	/Users/madskjeldgaard/.vim/snippets/supercollider.snippets
+endsnippet
+
 snippet setup
 	(
 	// Allocate memory
@@ -46,6 +50,190 @@ snippet proxy
 	)
 endsnippet
 
+# --- FEEDBACK STUFF ---
+
+# Feedback synthdef template
+snippet fbsd
+	// FEEDBACK BUS
+	${1:~feedbackbus} = Bus.audio(s, 2); 
+
+	(
+	// FEEDBACK SYNTH
+	SynthDef('${6:feedback_synth}', {
+		arg out=0, feedbackBus=$1, allocationtime = 60.0,
+		delaytime=${4:0.2}, decaytime=${5:2.0}, pan=0;
+
+		var feedbackIn, sig, src, parallelchains;
+		
+		// Excite the feedback loop to make sound
+		src = Clip.ar(WhiteNoise.ar(10.00) * Lag.kr(Impulse.kr(0.01).range(0.0, 1.0), 0.5));
+
+		// Get feedback input from audio bus
+		// InFeedback is necessarry to prevent the audio data from the previous
+		// cycle  on the bus being overwritten
+		feedbackIn = InFeedback.ar(feedbackBus, 2);
+		
+		// Add delay
+		sig = Mix.ar(Array.fill(${2:8}, {|i| 
+			Pan2.ar(
+					CombC.ar(feedbackIn+src, allocationtime, delaytime*(1+i), decaytime)/$2, 
+				1 - 2.rand)})); // Random panning 
+
+		// PROCESS THE FEEDBACK
+
+		// Set up parallel effects chain
+		parallelchains = [sig, ${3:FreqShift.ar(sig, 440, 2pi.rand)}];
+
+		sig = Splay.ar(parallelchains); // Mix down 
+
+		// Make sure things don't get stuck because of DC
+		sig = LeakDC.ar(sig); 
+
+		// Limiter to keep things under (relative) control
+		sig = Limiter.ar(sig, 0.95); 
+
+		// Output
+		Out.ar(feedbackBus, sig);
+		Out.ar(out, sig * 0.1)
+	}).add;
+	)
+	Synth('$6');
+endsnippet
+
+snippet fbproxy 
+	~process${1:1}.play(0, 2);
+
+	// FEEDBACK BUS
+	~feedbackbus$1 = Bus.audio(s, 2); 
+	(
+	// MODULATOR
+	~mod${2:1} = {((LFTri.kr(0.01) + LFSaw.kr(0.013)) / 2).range(0.01,1) };
+
+	// ACTUAL FEEDBACK PROCESS
+	~process$1 = {
+		arg out=0;
+		var in,sig,src, par, delaytime = ${3:0.05}, decaytime=${4:3.0};
+
+		src = Clip.ar(WhiteNoise.ar(10.00) * Lag.kr(Impulse.kr(0.01).range(0.0, 1.0), 0.5));
+
+		in = InFeedback.ar(~feedbackbus, 2);
+
+		sig = CombC.ar(in+src, 5, delaytime*~mod$2, decaytime);
+
+		par = [${5:sig}]; // parallel processing here 
+
+		sig = LeakDC.ar(Limiter.ar(Splay.ar(par), 0.60)); 
+
+		Out.ar(~feedbackBus$1, sig);
+	};
+	)
+endsnippet
+
+# Example using the Feedback quark
+snippet fbex
+	// simple dub delay effect
+
+	b = Buffer.read(s,"sounds/a11wlk01.wav")
+
+	(
+	{
+
+		var in = PlayBuf.ar(1,b);
+		var out = in + Fb({
+
+			arg feedback; // this will contain the delayed output from the Fb unit
+			// filter and distort the feedback signal.  
+			// Note that the input signal is fed in here as well:
+			BPF.ar(feedback*0.8 + in, 2000, 3.8).distort;
+			// for fun effects, try changing the 0.8 to something greater than one
+		},0.6);
+		DetectSilence.ar(out,doneAction:2);
+		out!2;
+	}.play;
+	)
+
+	b.free
+
+	// Karplus-Strong style plucked string algorithm (see also Pluck)
+	(
+	{
+		var sig = Impulse.ar(0)!2; // stereo input - feedback will expand to two channels  
+
+		var freq = 200;
+
+		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/freq);
+
+		DetectSilence.ar(sig,doneAction:2);
+
+		sig;
+
+	}.play
+
+	)
+
+
+	// Multiple instances in one SynthDef: three Karplus-Strong style algorithms in a row
+
+	(
+
+	{
+
+		var sig = Impulse.ar(0);
+
+		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/300);
+
+		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/400);
+
+		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/500);
+
+		DetectSilence.ar(sig,doneAction:2);
+
+		sig!2;
+
+	}.play
+
+	)
+
+
+	// You can nest feedback loops inside each other
+
+	(
+	{
+		var sig = Decay.kr(Impulse.kr(1/2),0.6)*PinkNoise.ar(1!2);
+		sig = FbL({
+
+			arg fb1;
+
+			sig = sig + FbL({
+
+				arg fb2;
+
+				(OnePole.ar(LeakDC.ar(0-fb2),0.2)*0.99*1)+(fb1*9) / 10;
+
+			},1/250);
+			OnePole.ar(sig,-0.01);
+		},0.1);
+		sig;
+	}.play;
+	)
+endsnippet
+
+snippet fb
+
+endsnippet
+
+snippet fbl
+
+endsnippet
+
+snippet fbc
+
+endsnippet
+
+snippet fbnode
+
+endsnippet
+
 # --- LANGUAGE STUFF ---
 
 snippet do
@@ -83,11 +271,69 @@ snippet class
 		}
 endsnippet
 
-snippet routine
+snippet 
 	Routine({
 		arg ${1:i};
 	})
 endsnippet	
+
+# --- NRT ---
+snippet scoreclockex
+	(
+	ScoreClock.beginScore;
+	ScoreClock.tempo = 100/60;
+	Pbind(
+	    \freq, 100*Pwhite(1,10,8),
+	    \dur, 0.5,
+	    \legato, 0.5
+	).play(ScoreClock);
+	~score = ScoreClock.makeScore;
+	)
+	// print it
+	~score.score.do(_.postln);""
+
+	// render to file
+	~score.recordNRT("~/score.osc".standardizePath,"~/score.aiff".standardizePath);
+	)
+endsnippet
+
+snippet ctkex
+	(
+	// 0. Choose an outputfile name and path
+	var outputfile = "~/Desktop/ctktest.wav";
+
+	// 1. Write Note proto types / Synths
+	~notes = CtkProtoNotes(
+		SynthDef(\testsynth, {
+			arg out=0, amp=0.2, freq, atk=1, sus=1, rel=1, pan=0;
+			var env = EnvGen.kr(Env([0, 1.0, 0.75, 0.0], [atk, sus, rel]), doneAction:2);
+			var sig = Pan2.ar(SinOsc.ar([freq, freq*1.01]), pan);
+
+			Out.ar(out, sig * env * amp)
+		});
+	);
+
+	// 2. Create score 
+	~score = CtkScore.new; // Create a score obj to keep track of notes
+
+	10.do{|i| var starttime=0, freqs = [80, 123, 435, 999]; 
+		// Generate 10 notes playing the \testsynth, 
+		// randomly choosing between 4 frequencies 
+		// and then add it to the score
+		~notes[\testsynth]
+		.note(starttime+i)
+		.atk_(i)
+		.freq_(freqs.choose)
+		.addTo(~score);}; 
+
+	// 3. Render / play
+	// ~score.play(s)
+
+	~score.write(path: outputfile.standardizePath, duration: 20, // defaults to 'nil' which is the length of the score 
+		sampleRate: 96000, headerFormat: "WAV", 
+		sampleFormat: "int32");
+	)
+endsnippet
 
 # --- BUSSES ---
 snippet audiobus 
@@ -125,10 +371,9 @@ snippet pb
 	/*** Pattern $1 for $2 synth ***/
 	~${1:pattern1} = Pbind(
 		\instrument, \\${2:synthDefName}, 
+		\buffer, ${3:buffer}, 
 		\amp, 1.0,
-		\freq, Pseq([${3:110,220,440,560}],1),
-		\dur, Pseq([${0:2,Rest(3),4,5}], 1),
-		\pfunc, Pfunc({"%: $1 is playing $2 synth".format(Date.getDate.format("%H:%M:%S")).postln}),
+		\dur, Pseq([${0:8, 12, 16}], inf),
 		\out, 0
 	);
 endsnippet
@@ -372,6 +617,13 @@ snippet white
 	WhiteNoise.kr().range(${1:0}, ${2:1})
 endsnippet	
 
+# Spectral stuff
+snippet chain
+	chain = FFT(LocalBuf(2048), ${1:in});
+	chain = ${2: PV_BinShift(chain, MouseX.kr(0.25,4, \exponential))};
+	sig = IFFT(chain);
+endsnippet
+
 # Noise
 snippet n0
 	LFNoise0.kr(${1:5}).range(${2:0}, ${3:1}) ${4:// Step noise}
@@ -539,6 +791,78 @@ snippet warp
 		${8:0}, interp: ${9:1})
 endsnippet
 
+snippet warpin
+	WarpIn.ar(in: ${1:AudioIn.ar([1, 2])}, buffer: ${2:buffer}, warpFactor: ${3:warp}, freqScale: ${4:1}, windowSize: ${5:0.1}, envbufnum: ${6:-1}, interp: ${7:4});
+endsnippet
+
+snippet warpinex
+	//Use headphones for these examples!
+
+	(
+
+
+	SynthDef(\warp, {arg dur = 1, buffer = 0;
+
+		var out, buflength, env, warp;
+
+		env = EnvGen.kr(Env([0.0001, 1, 0.0001], [0.1, 0.9], [4, -4]), timeScale: dur, doneAction: 2);
+
+		buflength = BufDur.kr(buffer);
+
+		warp = 0.5;
+
+		// read in stereo ... can be any number of channels BUT these must match the 
+
+		// number of channels in the buffer
+
+		out = WarpIn.ar(AudioIn.ar([1, 2]), buffer, warp, 1, 0.1, -1, interp: 1);
+
+		Out.ar(0, out * env);
+
+	}).send(s);
+
+	)
+
+	(
+
+	~bufs = [];
+
+	r = Routine.run({
+
+		var buf, synth, cond, thisnotedur;
+
+		cond = Condition.new;
+
+		10.do({
+
+			thisnotedur = 4.rrand(12);
+
+			// stretching by 0.5, need buffer for half the duration
+
+			buf = Buffer.alloc(s, thisnotedur * s.sampleRate * 0.5, 2); 
+
+			~bufs = ~bufs.add(buf);
+
+			s.sync(cond);
+
+			a = Synth(\warp, [\dur, thisnotedur.postln, \buffer, buf]);
+
+			1.wait;
+
+			})
+
+		});
+
+	)
+
+	// clean up
+
+	~bufs.do({arg me; me.free});
+
+	b.free;
+
+endsnippet
+
 snippet tgrain2
 	TGrains2.ar (${0:1}, trigger: ${1:0}, bufnum: ${2:0}, rate: ${3:1},
 		centerPos: ${4:0}, dur: ${5:0.1}, pan: ${6:0}, amp: ${7:0.1}, 
@@ -582,74 +906,43 @@ endsnippet
 # Reverbs
 snippet rev1 
 	Greyhole.ar(${1:in}, 
-		delayTime: ${2:2}, 
-		damp: ${3:0}, //  0 is no damping, 1 is very strong damping (0..1)
-		size: ${4:1}, // Values below 1 can sound metallic. (0.5..5) 
-		diff: ${5:0.707}, // controls pattern of echoes produced by the diffuser. 
-		feedback: ${6:0.9}, 
-		modDepth: ${7:0.1}, // (0..1) 
-		modFreq: ${8:2} // (0..10) 
-	)
+		delayTime: ${2:2}, damp: ${3:0}, size: ${4:1}, diff: ${5:0.707}, feedback: ${6:0.9}, modDepth: ${7:0.1},  
+		modFreq: ${8:2})
 endsnippet
 
 snippet greyhole 
 	Greyhole.ar(${1:in}, 
-		delayTime: ${2:2}, 
-		damp: ${3:0}, //  0 is no damping, 1 is very strong damping (0..1)
-		size: ${4:1}, // Values below 1 can sound metallic. (0.5..5) 
-		diff: ${5:0.707}, // controls pattern of echoes produced by the diffuser. 
-		feedback: ${6:0.9}, 
-		modDepth: ${7:0.1}, // (0..1) 
-		modFreq: ${8:2} // (0..10) 
-	)
+		delayTime: ${2:2}, damp: ${3:0}, size: ${4:1}, diff: ${5:0.707}, feedback: ${6:0.9}, modDepth: ${7:0.1},  
+		modFreq: ${8:2})
 endsnippet
 
 snippet rev2 
 	JPverb.ar(${1:in}, 
-		t60: ${2:1}, // approximate reverberation time in seconds (T60 - the time for the reverb to decay 60db) 
-		damp: ${3:0}, 
-		size: ${4:1}, 
-		earlyDiff: ${5:0.707}, //controls shape of early reflections. Values of 0.707 or more produce smooth exponential decay.
-		modDepth: ${6:0.1}, 
-		modFreq: ${7:2}, 
-		low: ${8:1}, 	
-		mid: ${9:1}, 
-		high: ${10:1}, 
-		lowcut: ${11:500}, highcut: ${12:2000})
+		t60: ${2:1}, damp: ${3:0}, size: ${4:1}, 
+		earlyDiff: ${5:0.707}, modDepth: ${6:0.1}, 
+		modFreq: ${7:2}, lowcut: ${11:500}, highcut: ${12:2000})
 endsnippet	
 
 snippet jpverb 
-	JPverb.ar(${1:in}, 
-		t60: ${2:1}, // approximate reverberation time in seconds (T60 - the time for the reverb to decay 60db) 
-		damp: ${3:0}, 
-		size: ${4:1}, 
-		earlyDiff: ${5:0.707}, //controls shape of early reflections. Values of 0.707 or more produce smooth exponential decay.
-		modDepth: ${6:0.1}, 
-		modFreq: ${7:2}, 
-		low: ${8:1}, 	
-		mid: ${9:1}, 
-		high: ${10:1}, 
+	JPverb.ar(${1:in}, t60: ${2:1},	damp: ${3:0}, size: ${4:1}, 
+		earlyDiff: ${5:0.707}, modDepth: ${6:0.1}, modFreq: ${7:2}, 
 		lowcut: ${11:500}, highcut: ${12:2000})
 endsnippet	
 
 snippet waveloss
-	WaveLoss.ar(in:${1:0}, drop: ${2:20}, // Amount of chunks to drop 
-		outof: ${3:40}, // Maximum amount of chunks 
-		mode: ${4:1} // 1 = drop in deterministic fashion, 2 = random
-	)
+	WaveLoss.ar(in:${1:0}, drop: ${2:20}, outof: ${3:40}, mode: ${4:1})
 endsnippet
 
 snippet freqshift
 	FreqShift.ar(${1:in}, freq: ${2:0}, phase: ${3:0})
 endsnippet
 
+snippet pitchshift
+	PitchShift.ar(in: ${1:sig}, windowSize: ${2:0.2}, pitchRatio: ${3:1}, pitchDispersion: ${4:0}, timeDispersion: ${5:0})
+endsnippet
+
 snippet squiz
-	Squiz.ar(
-		${1:in},
-		pitchratio: ${2:2}, // the ratio by which pitch will be raised (e.g.  pitchratio of 2 will raise by one octave)
-		zcperchunk:${3:1}, // indicates how many positive-going zero-crossings are used to delimit a chunk. 
-		memlen: ${4:0.1} // the amount (in seconds) of memory the unit allocates internally to remember each fragment, i.e. the longest a given fragment can become.
-	)
+	Squiz.ar(${1:in},pitchratio: ${2:2},zcperchunk:${3:1}, memlen: ${4:0.1})
 endsnippet
 
 # Resonant filters and resonators
@@ -695,6 +988,12 @@ endsnippet
 
 snippet ringz
 	Ringz.ar(in: ${1:0}, freq: ${2:440}, decaytime: ${3:1})
+endsnippet
+# Chaos
+
+snippet gendy1
+	Gendy1.ar(ampdist:1, durdist:1, adparam:1, ddparam:1, minfreq:440,
+			maxfreq:660, ampscale:0.5, durscale:0.5, initCPs:12);
 endsnippet
 
 # Physical Models
@@ -890,4 +1189,34 @@ snippet /*
 			${0:BREAK}  
 	*****************************/
 endsnippet
+
+
+snippet superdirteffect
+	///// $1
+	~dirt.addModule('${1:jpverb}', { |dirtEvent|
+		dirtEvent.sendSynth('$1' ++ ~dirt.numChannels,
+			// OPTIONAL
+			// passing this array of parameters could be left out,
+			// but it makes it clear what happens
+			[
+				${2: param1}: ~$2,
+				${3: param2}: ~$3 ,
+				${4: param3}: ~$4,
+				out: ~out
+			]
+		)
+	}, { ~$2.notNil }); 
+
+	SynthDef("$1" ++ numChannels, { |out, $2, $3, $4|
+		var sig = In.ar(out, numChannels);
+
+		sig = ${5: DFM1.ar(sig, 500);}
+			
+		ReplaceOut.ar(out, sig)
+
+	}).add;
+endsnippet
+
+
+
 
