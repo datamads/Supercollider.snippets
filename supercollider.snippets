@@ -2,10 +2,6 @@
 
 # --- SETUP ---
 
-snippet snippath
-	/Users/madskjeldgaard/.vim/snippets/supercollider.snippets
-endsnippet
-
 snippet setup
 	(
 	// Allocate memory
@@ -372,10 +368,15 @@ snippet pb
 	~${1:pattern1} = Pbind(
 		\instrument, \\${2:synthDefName}, 
 		\buffer, ${3:buffer}, 
-		\amp, 1.0,
+		\amp, 0.5,
+		\rate, ${5:1.0}, 
 		\dur, Pseq([${0:8, 12, 16}], inf),
+		\atk, Pkey(\dur), 
+		\rel, Pkey(\dur), 
 		\out, 0
 	);
+
+	~$1.play(fadeTime:${4:8});
 endsnippet
 
 snippet pl
@@ -407,6 +408,10 @@ snippet pget
 endsnippet
 
 snippet pseq
+	Pseq([${1:1,2,3,4}], ${2:inf}, ${3:0})
+endsnippet
+
+snippet ps 
 	Pseq([${1:1,2,3,4}], ${2:inf}, ${3:0})
 endsnippet
 
@@ -1216,7 +1221,3 @@ snippet superdirteffect
 
 	}).add;
 endsnippet
-
-
-
-
