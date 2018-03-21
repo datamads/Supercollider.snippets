@@ -1,10 +1,30 @@
-# Snippets for Mads Kjelgaards SuperCollider setup
+a Snippets for Mads Kjelgaards SuperCollider setup
 
-# --- SETUP ---
-
-snippet snippath
-	/Users/madskjeldgaard/.vim/snippets/supercollider.snippets
+# --- LIVECODE STUFF ---
+snippet filter
+	\filter -> {|in| ${1: }}
 endsnippet
+# --- Control structure ---
+
+snippet for
+	for(${1:0}, ${2:10}, ${3:{|i| i.postln}})
+endsnippet
+
+# --- SORTING ALGORITHMS ---
+
+# Not sure this is 100 % correct but it works
+snippet bubblesort
+    var bubblesort = {arg array;
+        array.size.do{|x|
+            for(0, array.size-1-x, {|i| j = i+1; 
+                    if (j != (array.size) and: {array[i] > array[j]}, 
+                        {array.swap(i,j)}
+                    );
+            })
+        }
+    };
+endsnippet
+# --- SETUP ---
 
 snippet setup
 	(
@@ -35,6 +55,13 @@ snippet setup
 	)
 endsnippet
 
+#--- Live code tricksss ---
+
+# Envelope curves
+snippet curves
+	[\lin, \exp, \sin, \wel, \sqr, \cub]
+endsnippet
+
 # Proxy
 snippet proxy
 	(
@@ -46,7 +73,9 @@ snippet proxy
 	//give proxyspace a tempo
 	p.clock.tempo = 1;
 	// Activate limiter
-	StageLimiter.activate;
+	//StageLimiter.activate;
+	//Record
+	s.record;
 	)
 endsnippet
 
@@ -98,140 +127,6 @@ snippet fbsd
 	}).add;
 	)
 	Synth('$6');
-endsnippet
-
-snippet fbproxy 
-	~process${1:1}.play(0, 2);
-
-	// FEEDBACK BUS
-	~feedbackbus$1 = Bus.audio(s, 2); 
-	(
-	// MODULATOR
-	~mod${2:1} = {((LFTri.kr(0.01) + LFSaw.kr(0.013)) / 2).range(0.01,1) };
-
-	// ACTUAL FEEDBACK PROCESS
-	~process$1 = {
-		arg out=0;
-		var in,sig,src, par, delaytime = ${3:0.05}, decaytime=${4:3.0};
-
-		src = Clip.ar(WhiteNoise.ar(10.00) * Lag.kr(Impulse.kr(0.01).range(0.0, 1.0), 0.5));
-
-		in = InFeedback.ar(~feedbackbus, 2);
-
-		sig = CombC.ar(in+src, 5, delaytime*~mod$2, decaytime);
-
-		par = [${5:sig}]; // parallel processing here 
-
-		sig = LeakDC.ar(Limiter.ar(Splay.ar(par), 0.60)); 
-
-		Out.ar(~feedbackBus$1, sig);
-	};
-	)
-endsnippet
-
-# Example using the Feedback quark
-snippet fbex
-	// simple dub delay effect
-
-	b = Buffer.read(s,"sounds/a11wlk01.wav")
-
-	(
-	{
-
-		var in = PlayBuf.ar(1,b);
-		var out = in + Fb({
-
-			arg feedback; // this will contain the delayed output from the Fb unit
-			// filter and distort the feedback signal.  
-			// Note that the input signal is fed in here as well:
-			BPF.ar(feedback*0.8 + in, 2000, 3.8).distort;
-			// for fun effects, try changing the 0.8 to something greater than one
-		},0.6);
-		DetectSilence.ar(out,doneAction:2);
-		out!2;
-	}.play;
-	)
-
-	b.free
-
-	// Karplus-Strong style plucked string algorithm (see also Pluck)
-	(
-	{
-		var sig = Impulse.ar(0)!2; // stereo input - feedback will expand to two channels  
-
-		var freq = 200;
-
-		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/freq);
-
-		DetectSilence.ar(sig,doneAction:2);
-
-		sig;
-
-	}.play
-
-	)
-
-
-	// Multiple instances in one SynthDef: three Karplus-Strong style algorithms in a row
-
-	(
-
-	{
-
-		var sig = Impulse.ar(0);
-
-		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/300);
-
-		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/400);
-
-		sig = FbL({arg fb; LPF.ar(LeakDC.ar(fb),8000)*0.99+sig;},1/500);
-
-		DetectSilence.ar(sig,doneAction:2);
-
-		sig!2;
-
-	}.play
-
-	)
-
-
-	// You can nest feedback loops inside each other
-
-	(
-	{
-		var sig = Decay.kr(Impulse.kr(1/2),0.6)*PinkNoise.ar(1!2);
-		sig = FbL({
-
-			arg fb1;
-
-			sig = sig + FbL({
-
-				arg fb2;
-
-				(OnePole.ar(LeakDC.ar(0-fb2),0.2)*0.99*1)+(fb1*9) / 10;
-
-			},1/250);
-			OnePole.ar(sig,-0.01);
-		},0.1);
-		sig;
-	}.play;
-	)
-endsnippet
-
-snippet fb
-
-endsnippet
-
-snippet fbl
-
-endsnippet
-
-snippet fbc
-
-endsnippet
-
-snippet fbnode
-
 endsnippet
 
 # --- LANGUAGE STUFF ---
@@ -368,14 +263,70 @@ endsnippet
 
 # Pbind 
 snippet pb
-	/*** Pattern $1 for $2 synth ***/
-	~${1:pattern1} = Pbind(
-		\instrument, \\${2:synthDefName}, 
-		\buffer, ${3:buffer}, 
-		\amp, 1.0,
+	~${1:p1}${8:[0]} = Pbind(
+		\instrument, \\${2:oneShotSamplePlayer2}, 
+		\buffer, Pseq(o["${3:buffer}"],inf), 
+		\amp, 0.3,
+		\rate, ${5:1.0}, 
 		\dur, Pseq([${0:8, 12, 16}], inf),
+		\loop, ${6:1},
+		\atk, ${7:0 *} Pkey(\dur), 
+		\rel, Pkey(\dur), 
 		\out, 0
 	);
+
+	~$1.play(fadeTime:${4:8});
+endsnippet
+
+# Pmono
+snippet pm
+	~${1:p1}${8:[0]} = Pmono(
+		\\${2:samplePlayer2}, 
+		\buffer, Pseq(o["${3:buffer}"],inf), 
+		\amp, 0.3,
+		\rate, ${5:1.0}, 
+		\dur, Pseq([${0:8, 12, 16}], inf),
+		\loop, ${6:1},
+		\atk, ${7:0 *} Pkey(\dur), 
+		\rel, Pkey(\dur), 
+		\out, 0
+	);
+
+	~$1.play(fadeTime:${4:8});
+endsnippet
+
+# Pbind for loops
+snippet pbl
+	~${1:p1}${9:[0]} = Pbind(
+			\instrument, \\${2:loopingSamplePlayer2}, 
+			\buffer, Pseq(o["${3:buffer}"],inf), 
+			\amp, 0.3,
+			\rate, ${5:1.0}, 
+			\dur, Pseq([${0:2, 4, 6}], inf),
+			\loop, ${6:1},
+			\atk, ${7:0 * }Pkey(\dur), 
+			\rel, ${8:0 * }Pkey(\dur), 
+			\out, 0
+		);
+
+	~$1.play(fadeTime:${4:8});
+endsnippet
+
+snippet pbp
+	~${1:p1}${9:[0]} = Pbind(
+			\instrument, \\${2:oneShotSamplePlayer2}, 
+			\buffer, Pseq(o["${3:buffer}"],inf), 
+			\amp, 0.3,
+			\rate, ${5:1.0}, 
+			\dur, Pseq([${0:0.5, 1/3, 1/4, 7}], inf),
+			\loop, ${6:0},
+			\atk, ${7:0 * }Pkey(\dur), 
+			\rel, ${8:1.0 }, 
+			\envcurve, \exp,
+			\out, 0
+		);
+
+	~$1.play(fadeTime:${4:8});
 endsnippet
 
 snippet pl
@@ -394,6 +345,11 @@ snippet pl
 	);
 endsnippet
 
+# Custom patterns
+snippet proly
+	Proly(steps: ${1:100}, curve: ${2:'log'}, repeats: ${3:inf})
+endsnippet
+
 snippet plambda
 	Plambda(${1:pattern}${2:, scope})
 endsnippet
@@ -406,8 +362,111 @@ snippet pget
 	Pget(key: \${1:key}, default: ${2:0}, repeats: ${3:inf}) 
 endsnippet
 
+snippet pfsmmorph
+	Pfsmmorph(${1:~p1.source}, [ #[${2:0,1}], // entry states (chosen randomly)
+				${3:Pbind(\cutoff, 1500, \rate, Pseq([0.25, 0.9138, -2]))}, #[${4: 1, 1, 2}], // 0
+				${5:Pbind(\pitchenv,1, \dur, Pstutter(3, Pxrand((1..5))))}, #[${6:1, 2}], // 1
+				${7:Pbind(\cutoff, Pseq([500,1500]), \filterenv, 1)}, #[${8:0, 2}], // 2
+				${9:Pbind( \dur, Pxrand([1/4, 1/2, 1/8]))}, #[${10:1,3,4}], // 3
+				// terminal state:
+				nil, nil // 4 (if the machine reaches this state, it stops)
+			]
+	);
+endsnippet
+
+snippet pfsm
+	Pfsm([
+		#[5, 6, 7], // entry states
+
+		/e1 (== state 0)
+		Pbind( \dur, Pseq([ 1/8, 3/8 ]), \midinote, Pseq([ 86, 75 ]) ),
+		//#[1],    // as given in CMJ
+		// my de-boredom-ated version..
+		#[1, 1, 1, 1, 1, 1, 1, 8],
+		//e2 (== state 1)
+		Pbind( \dur, 1/2, \midinote, Pseq([ 69 ]) ),
+		#[0, 1],
+		//e3 (== state 2)
+		Pbind( \dur, 1/3, \midinote, Pseq([ 55, 60, 66 ]) ),
+		#[0, 1, 2, 2, 2, 2, 3, 3, 3, 3],
+		//e4 (== state 3)
+		Pbind( \dur, 1/4, \midinote, Pseq([ 81, 80, 77, 76 ]) ),
+		#[1, 4, 4, 4, 4],
+		//e5 (== state 4)
+		Pbind( \dur, Pseq([1, 2/3, 2/3, 2/3, 1]), \midinote, Pseq([ \, 70, 70, 70, \ ]) ),
+		#[2, 3],
+		//e6 (== state 5)
+		Pbind( \dur, 1/4, \midinote, Pseq([ 59, 61 ]) ),
+		#[0, 2, 4, 5, 5, 5, 5, 5, 5, 5],
+		//e7 (== state 6)
+		Pbind( \dur, 1/4, \midinote, Pseq([ 87, 88 ], 2) ),
+		#[4, 4, 4, 4, 6, 6, 6, 7, 7, 7],
+		//e8 (== state 7)
+		Pbind( \dur, 1, \midinote, Pseq([ 56 ]) ),
+		#[1, 3, 6, 6, 6],
+		// terminal state
+		nil, nil
+	])
+endsnippet	
+
 snippet pseq
 	Pseq([${1:1,2,3,4}], ${2:inf}, ${3:0})
+endsnippet
+
+snippet ps 
+	Pseq([${1:1,2,3,4}], ${2:inf}, ${3:0})
+endsnippet
+
+snippet pbrown
+	Pbrown(lo: ${1:0}, hi: ${2:1}, step: ${3:0.125}, length: inf)
+endsnippet
+
+snippet pgbrown
+	Pgbrown(lo: ${1:0}, hi: ${2:1}, step: ${3:0.125}, length: inf)
+endsnippet
+
+snippet pcollect
+	Pcollect(${1: {|item| item * 3}}, ${2: pattern})
+endsnippet
+
+snippet ppatmod
+	Ppatmod(${1:pattern}, ${2:func}, ${3:inf})
+endsnippet
+
+snippet plazy
+	Plazy({${1:var x = Array.series(rrand(2, 4), [1, 100].choose, 1); Pshuf(x,inf);}})
+endsnippet
+
+snippet pkr
+	Pkr(~${1:oscillator1})
+endsnippet
+
+snippet preject
+	Preject({ ${1:arg item; item == 1} }, ${2:Pseq(#[1, 2, 3],inf)});
+endsnippet
+
+snippet pselect 
+	Pselect({ ${1:arg item; item != 1} }, ${2:Pseq(#[1, 2, 3],inf)});
+endsnippet
+
+snippet padd
+	Padd(\${1:key}, ${2:value}, ${3: ~pattern} )
+endsnippet
+
+snippet pmul 
+	Pmul(\${1:key}, ${2:value}, ${3: ~pattern} )
+endsnippet
+
+snippet pmul 
+	Pmul(\${1:key}, ${2:value}, ${3: ~pattern} )
+endsnippet
+
+snippet protate
+	Prorate(${1:Pseq([0.35, 0.5, 0.8])}, ${2:Prand([20, 1], inf)})
+endsnippet
+
+snippet pset
+	Pset(\${1:freq}, ${2:801}, ${3:Pbind(\dur, 0.5)});
 endsnippet
 
 snippet pbind
@@ -416,6 +475,17 @@ snippet pbind
 		\out, ${3:0}
 		)
 endsnippet	
+
+snippet pmono 
+	Pmono(\${1:instrument},
+		\dur, ${2:5},
+		\out, ${3:0}
+		)
+endsnippet	
+
+snippet pchain
+	Pchain(${1: ~p1}, ${2: ~p2}, ${3: ~p3}) 
+endsnippet
 
 snippet ppar
 	Ppar([
@@ -433,11 +503,93 @@ snippet pfindur
 endsnippet
 
 snippet pfunc
-	Pfunc({${1: }})
+	Pfunc ({ |ev| if (${1:ev[\rate] > 0.25}) 
+		{ ${2:"true: ".post; ev[\rate].postln;} } // true 
+		{ ${3: "false: ".post; ev[\rate].postln;} } // false
+	})
 endsnippet
 
-# --- SYNTH DEFINITIONS ---
+#PFX example
+snippet pfxex
+	(
+	SynthDef(\echo, { arg out=0, maxdtime=0.2, dtime=0.2, decay=2, gate=1;
+	    var env, in;
+	    env = Linen.kr(gate, 0.05, 1, 0.1, 2);
+	    in = In.ar(out, 2);
+	    XOut.ar(out, env, CombL.ar(in * env, maxdtime, dtime, decay, 1, in));
+	}, [\ir, \ir, 0.1, 0.1, 0]).add;
 
+	SynthDef(\distort, { arg out=0, pregain=40, amp=0.2, gate=1;
+	    var env;
+	    env = Linen.kr(gate, 0.05, 1, 0.1, 2);
+	    XOut.ar(out, env, (In.ar(out, 2) * pregain).distort * amp);
+	}, [\ir, 0.1, 0.1, 0]).add;
+
+	SynthDef(\wah, { arg out=0, gate=1;
+	    var env, in;
+	    env = Linen.kr(gate, 0.05, 1, 0.4, 2);
+	    in = In.ar(out, 2);
+	    XOut.ar(out, env, RLPF.ar(in, LinExp.kr(LFNoise1.kr(0.3), -1, 1, 200, 8000), 0.1).softclip * 0.8);
+	}, [\ir, 0]).add;
+	)
+
+	(
+	var p, q, r, o;
+	p = Pbind(\degree, Prand((0..7),12), \dur, 0.3, \legato, 0.2);
+
+	q = Pfx(p, \echo, \dtime, 0.2, \decay, 3);
+
+	r = Pfx(q, \distort, \pregain, 20, \amp, 0.25);
+
+	o = Pfx(r, \wah);
+
+	Pseq([p, q, r, o], 2).play;
+	)
+endsnippet
+
+# Pgeom
+snippet pgeom
+	Pgeom(start: ${1:0}, grow: ${2:1}, length: ${3:inf})
+endsnippet
+
+# Pseries
+snippet pseries
+	Pseries(start: ${1:0}, step: ${2:1}, length: ${3:inf})
+endsnippet
+
+# Pwalk
+snippet pwalk
+	Pwalk(${1:list}, ${2:Pseq([1,2,3,4],inf)}, directionPattern: ${3:1}, startPos: ${4:0})
+endsnippet
+
+# Pwrand
+snippet pwrand
+	Pwrand(${1:list}, ${2:weights}, repeats: ${3:1})
+endsnippet
+
+# Punop
+snippet punop
+	Punop(${1:operator}, ${2:pattern})
+endsnippet
+
+# Pbinop 
+snippet pbinop 
+	Pbinop(${1:operator}, ${2:patA}, ${3:patB})
+endsnippet
+
+snippet pgate
+	Pgate(${1:pattern}, repeats: inf, key: ${2:\gate})
+endsnippet
+
+# Put this method at the end of an event pattern to share it's data with other
+# events
+snippet collectev 
+	collect({ |event|
+	    ~${1:eventsOfP1} = event; // Accessible all over via Pfunc({~$1[\key]})
+		})
+snippet
+
+# --- SYNTH DEFINITIONS ---
 # Browse synth defs
 snippet browse
 	(
@@ -625,19 +777,19 @@ snippet chain
 endsnippet
 
 # Noise
-snippet n0
+snippet lfnoise0 
 	LFNoise0.kr(${1:5}).range(${2:0}, ${3:1}) ${4:// Step noise}
 endsnippet
 
-snippet n1
+snippet lfnoise1 
 	LFNoise1.kr(${1:5}).range(${2:0}, ${3:1}) ${4:// Ramp noise}
 endsnippet
 
-snippet n2
+snippet lfnoise2 
 	LFNoise2.kr(${1:5}).range(${2:0}, ${3:1}) ${4:// Quadratic noise}
 endsnippet
 
-snippet n6
+snippet crackle
 	Crackle.kr(${1:1.5}).range(${2:0}, ${3:1}) ${4:// Chaotic noise function}
 endsnippet
 
@@ -672,6 +824,10 @@ snippet tbrownrand
 endsnippet	
 
 # .ar ugens
+
+snippet tpv
+	TPV.ar(${1:chain}, windowsize: ${2:1024}, hopsize: ${3:512}, maxpeaks: ${4:80}, currentpeaks: ${5:80}, freqmult: ${6:1}, tolerance: ${7:4}, noisefloor: 0.2)
+endsnippet
 
 # Chaos
 
@@ -881,6 +1037,10 @@ snippet monograin
 	MonoGrain.ar(${1:in}, winsize: ${2:0.1}, grainrate: ${3:10}, winrandpct: ${4:0})
 endsnippet	
 
+snippet bufrd
+	BufRd.ar(${1:numChannels}, bufnum: ${2:buffer}, phase: 0, loop: ${3:1}, interpolation: 4);
+endsnippet
+
 snippet concat
 	Concat.ar(
 		${1:control}, ${2:source}, storesize: ${3:1}, 
@@ -929,8 +1089,9 @@ snippet jpverb
 		lowcut: ${11:500}, highcut: ${12:2000})
 endsnippet	
 
+# OTHER stuff
 snippet waveloss
-	WaveLoss.ar(in:${1:0}, drop: ${2:20}, outof: ${3:40}, mode: ${4:1})
+	WaveLoss.ar(in:${1:0}, drop: ${2:20}, outof: ${3:40}, mode: ${4:2})
 endsnippet
 
 snippet freqshift
@@ -977,8 +1138,12 @@ snippet complexres
 endsnippet
 
 snippet klank
-	Klank.ar(\`[${1:frequencies}, ${2:amplitudes}, ${3:ringtimes}], ${4:input},
-		freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:1})
+	Klank.ar(\`[
+		${1:[444, 888, 999]},  // Frequencies
+		${2:[0.1, 0.1, 0.1]}, // Amplitudes
+		${3:[0.1, 0.1, 0.1]}], // Ring times
+		${4:in},
+		freqscale: ${5:1}, freqoffset: ${6:0}, decayscale: ${7:0.5})
 endsnippet
 
 snippet dynklank
@@ -1063,6 +1228,16 @@ endsnippet
 snippet lpf6
 	// TB303 filter emulation
 	RLPFD.ar(${1:in}, freq: ${2:440}, res: ${3:0}, dist: ${4:0})
+endsnippet
+
+# Allpass and Comb
+snippet allpass
+	AllpassC.ar(in: ${1:in}, maxdelaytime: ${2:0.2}, delaytime: ${3:0.2}, decaytime: ${4:1})
+endsnippet
+
+snippet comb
+	CombC.ar(in: ${1:in}, maxdelaytime: ${2:0.2}, delaytime: ${3:0.2},
+	decaytime: ${4:1})
 endsnippet
 
 # Highpass filters

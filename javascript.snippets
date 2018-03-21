@@ -1,0 +1,128 @@
+# CUSTOM JAVASCRIPT SNIPPETS
+
+
+#### THREE JS 
+
+snippet audio
+	// create an AudioListener and add it to the camera
+	var listener = new THREE.AudioListener();
+	camera.add( listener );
+
+	// create a global audio source
+	var sound = new THREE.Audio( listener );
+
+	// load a sound and set it as the Audio object's buffer
+	var audioLoader = new THREE.AudioLoader();
+	audioLoader.load( '${1:sounds/ambient.ogg}', function( buffer ) {
+		sound.setBuffer( buffer );
+		sound.setLoop( ${2:true} );
+		sound.setVolume( ${3:0.5} );
+		sound.play();
+	});
+endsnippet
+
+snippet audioanalyser
+	// create an AudioAnalyser, passing in the sound and desired fftSize
+	var analyser = new THREE.AudioAnalyser( sound, 32 );
+
+	// get the average frequency of the sound
+	var data = analyser.getAverageFrequency();	
+endsnippet
+
+snippet spotlight
+	// white spotlight shining from the side, casting a shadow
+
+	var spotLight = new THREE.SpotLight( ${1:0xffffff} );
+	spotLight.position.set( ${2:100}, ${3:1000}, ${4:100} );
+
+	spotLight.castShadow = true;
+
+	spotLight.shadow.mapSize.width = 1024;
+	spotLight.shadow.mapSize.height = 1024;
+
+	spotLight.shadow.camera.near = 500;
+	spotLight.shadow.camera.far = 4000;
+	spotLight.shadow.camera.fov = 30;
+
+	scene.add( spotLight );
+endsnippet
+
+snippet textureload
+	new THREE.TextureLoader().load('${1:w.jpg}')
+endsnippet
+
+snippet planegeo
+	new THREE.PlaneGeometry( ${1:5}, ${2:20}, ${3:32} );
+endsnippet
+
+snippet boxgeo
+	new THREE.BoxGeometry( ${1:1}, ${2:1}, ${3:1} );
+endsnippet
+
+snippet mesh
+	new THREE.Mesh( ${1:geometry}, ${2:material} )
+endsnippet
+
+snippet 3js
+
+		var scene, renderer, camera, light, material;
+
+    var shape1, shape1geo;
+
+    function init() {
+
+        // SCENE
+        scene = new THREE.Scene();
+
+        // CAMERA
+        camera = new THREE.PerspectiveCamera( 35, window.innerWidth/window.innerHeight, 0.1, 3000 );
+        camera.position.z = 5;
+
+        // LIGHT
+        light = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(light);
+
+        // RENDERER
+        renderer = new THREE.WebGLRenderer({antialias:true});
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.setClearColor(0xffffff );
+
+        document.body.appendChild( renderer.domElement ); // Add to html document
+
+        // SHAPE
+        material = new THREE.MeshStandardMaterial({color: 0x00ff00}); 
+
+        shape1geo =  new THREE.BoxGeometry(100, 100, 100 );
+        shape1 = new THREE.Mesh( shape1geo, material );
+        shape1.position.set(0,0,-500);
+        scene.add(shape1);
+
+      };
+
+      // ANIMATION LOOP
+      function animate() { 
+
+        requestAnimationFrame( animate );
+
+        shape1.rotation.y += 0.1;
+
+        renderer.render(scene, camera);
+
+      };
+
+      // WINDOW RESIZE 
+      window.addEventListener( 'resize', onWindowResize, false );
+
+      function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize( window.innerWidth, window.innerHeight );
+
+      };
+  
+        
+      init();
+      animate();
+endsnippet
